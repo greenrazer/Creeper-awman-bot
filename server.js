@@ -13,6 +13,8 @@ const FILENAME = 1;
 let lyricsChecker;
 let audioHandler;
 
+let ServerInfo = new Map();
+
 // Initialize Discord Bot
 var bot = new Discord.Client();
 bot.login(auth.discordBotToken);
@@ -29,15 +31,18 @@ bot.on('message', async (message) => {
   if(!vc) {
     return;
   }
+  const id = AudioHandler.idFromVoiceChannel(vc);
   const words = message.content.split(" ");
   switch (words[0]){
     case "!cbStart":
-      if(audioHandler == null || !audioHandler.isStarted(vc)){
-        lyricsChecker = new LyricsChecker();
-        audioHandler = new AudioHandler();
+      if(!ServerInfo.has(id) || !ServerInfo.get(id)["audioHandler"].isStarted(vc)){
+        ServerInfo.set(id, {
+          "lyricsChecker": new LyricsChecker(),
+          "audioHandler": new AudioHandler()
+        });
         try {
-          await loadSong(words[1]);
-          await audioHandler.start(vc);
+          await loadSong(words[1], id);
+          await ServerInfo.get(id)["audioHandler"].start(vc);
         }
         catch(err) {
           message.reply(`error playing song ${words[1]}`);
@@ -46,30 +51,30 @@ bot.on('message', async (message) => {
       }
       break;
     case "!cbStop":
-      if(audioHandler.isStarted(vc)){
-        audioHandler.stop(vc);
+      if(ServerInfo.get(id)["audioHandler"].isStarted(vc)){
+        ServerInfo.get(id)["audioHandler"].stop(vc);
       }
       break;
     default:
-      if(audioHandler.isStarted(vc)){
+      if(ServerInfo.get(id)["audioHandler"].isStarted(vc)){
         let toPlay = [];
         for(let word of words) {
-          toPlay.push(lyricsChecker.currWordPos);
-          if(!lyricsChecker.isNextWord(word)){
-            if(lyricsChecker.currAt > 0){
+          toPlay.push(ServerInfo.get(id)["lyricsChecker"].currWordPos);
+          if(!ServerInfo.get(id)["lyricsChecker"].isNextWord(word)){
+            if(ServerInfo.get(id)["lyricsChecker"].currAt > 0){
               SimpleLogger.info("am playing tts" + message.content);
-              lyricsChecker.reset();
+              ServerInfo.get(id)["lyricsChecker"].reset();
             }
             return;
           }
         }
-        audioHandler.addToQueue(vc, toPlay);
+        ServerInfo.get(id)["audioHandler"].addToQueue(vc, toPlay);
       }
       break;
   }
 });
 
-function loadSong(songName) {
+function loadSong(songName, id) {
   return new Promise((resolve, reject) => {
     SimpleLogger.info(`Loading ${songName}`);
     const filestream = fs.createReadStream(`./songs/${songName}/lyricfile`)
@@ -84,11 +89,11 @@ function loadSong(songName) {
         if (!fs.existsSync(`./songs/${songName}/audio/${row[FILENAME]}`)) {
           reject(new Error(`${row[FILENAME]} does not exist.`));
         }
-        lyricsChecker.addNextWord(row[LYRIC]);
-        audioHandler.addNextFilename(`./songs/${songName}/audio/${row[FILENAME]}`);
+        ServerInfo.get(id)["lyricsChecker"].addNextWord(row[LYRIC]);
+        ServerInfo.get(id)["audioHandler"].addNextFilename(`./songs/${songName}/audio/${row[FILENAME]}`);
       })
       .on('end', () => {
-        if(lyricsChecker.totalLyrics === 0){
+        if(ServerInfo.get(id)["lyricsChecker"].totalLyrics === 0){
           reject(new Error("No lyrics in lyricfile (place lyrics in ./songs/<SONG_NAME_FOLDER>/lyricfile)"));
         }
         SimpleLogger.info(`Finished Loading ${songName}`);
