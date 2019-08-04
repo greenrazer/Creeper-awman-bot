@@ -11,6 +11,7 @@ const PlayType = {
 const QueueParts = {
   DATA: 0,
   TYPE: 1,
+  BITRATE: 2,
 }
 
 class AudioHandler {
@@ -55,12 +56,12 @@ class AudioHandler {
     const data = this.idToData.get(AudioHandler.idFromVoiceChannel(voiceChannel));
     for(let num of nums) {
       if(!this.posToFilename.has(num)){
-        throw "Is Adding a file that does not exist."
+        throw "Is adding a file that does not exist."
       }
 
       // const readStream = fs.createReadStream(this.posToFilename.get(num));
-      // this.pushQueue(data, readStream, PlayType.STREAM);
-      this.pushQueue(data, this.posToFilename.get(num), PlayType.FILENAME);
+      // this.pushQueue(data, readStream, PlayType.STREAM, 1411);
+      this.pushQueue(data, this.posToFilename.get(num));
     }
 
     if(!data["isPlaying"]) {
@@ -91,6 +92,7 @@ class AudioHandler {
     await writeFile(`./temp_audio/${id}.wav`, audioData, 'binary');
 
     this.pushQueue(data, `./temp_audio/${id}.wav`, PlayType.FILENAME);
+    // this.pushQueue(data, streamifier.createReadStream(audioData), PlayType.FILENAME, 384);
 
     if(!data["isPlaying"]) {
       this.play(voiceChannel);
@@ -109,7 +111,7 @@ class AudioHandler {
           dispatcher = data["connection"].playFile(currQueue[QueueParts.DATA]);
           break;
         case PlayType.STREAM:
-          dispatcher = data["connection"].playConvertedStream(currQueue[QueueParts.DATA]);
+          dispatcher = data["connection"].playArbitraryInput(currQueue[QueueParts.DATA], {bitrate:currQueue[QueueParts.BITRATE], volume:1});
           break;
         default:
           this.play(voiceChannel);
@@ -129,8 +131,8 @@ class AudioHandler {
     }
   }
 
-  pushQueue(queueWrapper, data, type){
-    queueWrapper["queue"].push([data,type]);
+  pushQueue(queueWrapper, data, type = PlayType.FILENAME, bitrate = null){
+    queueWrapper["queue"].push([data,type,bitrate]);
   }
 }
 

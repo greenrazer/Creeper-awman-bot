@@ -65,14 +65,14 @@ bot.on('message', async (message) => {
       if(!ServerInfo.has(id)){
         return;
       }
-      
+
       if(ServerInfo.get(id)["audioHandler"].isStarted(vc)){
         let toPlay = [];
         for(let word of words) {
           toPlay.push(ServerInfo.get(id)["lyricsChecker"].currWordPos);
           if(!ServerInfo.get(id)["lyricsChecker"].isNextWord(word)){
             if(ServerInfo.get(id)["lyricsChecker"].currAt > 0){
-              ServerInfo.get(id)["audioHandler"].addTTSToQueue(vc, message.content);
+              await ServerInfo.get(id)["audioHandler"].addTTSToQueue(vc, message.content);
               ServerInfo.get(id)["lyricsChecker"].reset();
             }
             return;
