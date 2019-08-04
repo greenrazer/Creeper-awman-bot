@@ -1,7 +1,8 @@
 const Discord = require("discord.js");
-const auth = require("./auth");
+const DiscordAuth = require("./auth/discord-auth");
 const csv = require('csv-parser');
 const fs = require('fs');
+const TextToSpeech = require('@google-cloud/text-to-speech');
 const LyricsChecker = require("./lyrics-checker");
 const AudioHandler = require("./audio-handler");
 const SimpleLogger = require("./simple-logger");
@@ -15,9 +16,14 @@ let audioHandler;
 
 let ServerInfo = new Map();
 
+//Initialize Google TTS;
+const googleTTSClient = new TextToSpeech.TextToSpeechClient({
+  "keyFilename": "./auth/google-auth.json"
+});
+
 // Initialize Discord Bot
 var bot = new Discord.Client();
-bot.login(auth.discordBotToken);
+bot.login(DiscordAuth.botToken);
 
 bot.on('ready', function () {
   SimpleLogger.info('Discord bot connected.');
@@ -38,7 +44,7 @@ bot.on('message', async (message) => {
       if(!ServerInfo.has(id) || !ServerInfo.get(id)["audioHandler"].isStarted(vc)){
         ServerInfo.set(id, {
           "lyricsChecker": new LyricsChecker(),
-          "audioHandler": new AudioHandler()
+          "audioHandler": new AudioHandler(googleTTSClient)
         });
         try {
           await loadSong(words[1], id);
@@ -62,7 +68,7 @@ bot.on('message', async (message) => {
           toPlay.push(ServerInfo.get(id)["lyricsChecker"].currWordPos);
           if(!ServerInfo.get(id)["lyricsChecker"].isNextWord(word)){
             if(ServerInfo.get(id)["lyricsChecker"].currAt > 0){
-              SimpleLogger.info("am playing tts" + message.content);
+              ServerInfo.get(id)["audioHandler"].addTTSToQueue(vc, message.content);
               ServerInfo.get(id)["lyricsChecker"].reset();
             }
             return;

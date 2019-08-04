@@ -1,11 +1,23 @@
 const fs = require('fs');
 const SimpleLogger = require("./simple-logger");
+const streamifier = require("streamifier");
+
+const PlayType = {
+  FILENAME: 0,
+  STREAM: 1,
+}
+
+const QueueParts = {
+  DATA: 0,
+  TYPE: 1,
+}
 
 class AudioHandler {
-  constructor(){
+  constructor(googleTTSClient){
     this.posToFilename = new Map();
     this.idToData= new Map();
     this.numFiles = 0;
+    this.googleTTSClient = googleTTSClient;
   }
 
   addNextFilename(filename) {
@@ -38,15 +50,42 @@ class AudioHandler {
     if(!this.isStarted(voiceChannel)){
       return;
     }
+
     const data = this.idToData.get(AudioHandler.idFromVoiceChannel(voiceChannel));
     for(let num of nums) {
       if(!this.posToFilename.has(num)){
         throw "Is Adding a file that does not exist."
       }
+
       // const readStream = fs.createReadStream(this.posToFilename.get(num));
       // data["queue"].push(readStream);
-      data["queue"].push(this.posToFilename.get(num));
+      this.pushQueue(data, this.posToFilename.get(num), PlayType.FILENAME);
     }
+
+    if(!data["isPlaying"]) {
+      this.play(voiceChannel);
+    }
+  }
+
+  async addTTSToQueue(voiceChannel, sentence) {
+    if(!this.isStarted(voiceChannel)){
+      return;
+    }
+
+    const request = {
+      input: {text: sentence},
+      // Select the language and SSML Voice Gender (optional)
+      voice: {languageCode: 'en-US', ssmlGender: 'NEUTRAL'},
+      // Select the type of audio encoding
+      audioConfig: {audioEncoding: 'LINEAR16'},
+    };
+
+    const audioData = (await this.googleTTSClient.synthesizeSpeech(request))[0].audioContent;
+
+    const data = this.idToData.get(AudioHandler.idFromVoiceChannel(voiceChannel));
+
+    this.pushQueue(data, streamifier.createReadStream(audioData), PlayType.STREAM);
+
     if(!data["isPlaying"]) {
       this.play(voiceChannel);
     }
@@ -56,8 +95,21 @@ class AudioHandler {
     const data = this.idToData.get(AudioHandler.idFromVoiceChannel(voiceChannel));
     if(data["queue"].length > 0){
       data["isPlaying"] = true;
-      // const dispatcher = data["connection"].playConvertedStream(data["queue"].shift());
-      const dispatcher = data["connection"].playFile(data["queue"].shift());
+      const currQueue = data["queue"].shift();
+
+      let dispatcher;
+      switch(currQueue[QueueParts.TYPE]) {
+        case PlayType.FILENAME:
+          dispatcher = data["connection"].playFile(currQueue[QueueParts.DATA]);
+          break;
+        case PlayType.STREAM:
+          dispatcher = data["connection"].playConvertedStream(currQueue[QueueParts.DATA]);
+          break;
+        default:
+          this.play(voiceChannel);
+          return;
+      }
+
       dispatcher.on("end", () => {
         this.play(voiceChannel);
       });
@@ -69,6 +121,10 @@ class AudioHandler {
     else {
       data["isPlaying"] = false;
     }
+  }
+
+  pushQueue(queueWrapper, data, type){
+    queueWrapper["queue"].push([data,type]);
   }
 }
 
