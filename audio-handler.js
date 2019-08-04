@@ -61,7 +61,7 @@ class AudioHandler {
 
       // const readStream = fs.createReadStream(this.posToFilename.get(num));
       // this.pushQueue(data, readStream, PlayType.STREAM, 1411);
-      this.pushQueue(data, this.posToFilename.get(num));
+      this.pushQueue(data, this.posToFilename.get(num), PlayType.FILENAME, 1411);
     }
 
     if(!data["isPlaying"]) {
@@ -91,7 +91,7 @@ class AudioHandler {
     const writeFile = util.promisify(fs.writeFile);
     await writeFile(`./temp_audio/${id}.wav`, audioData, 'binary');
 
-    this.pushQueue(data, `./temp_audio/${id}.wav`, PlayType.FILENAME);
+    this.pushQueue(data, `./temp_audio/${id}.wav`, PlayType.FILENAME, 384);
     // this.pushQueue(data, streamifier.createReadStream(audioData), PlayType.FILENAME, 384);
 
     if(!data["isPlaying"]) {
@@ -108,14 +108,13 @@ class AudioHandler {
       let dispatcher;
       switch(currQueue[QueueParts.TYPE]) {
         case PlayType.FILENAME:
-          dispatcher = data["connection"].playFile(currQueue[QueueParts.DATA]);
+          dispatcher = data["connection"].playFile(currQueue[QueueParts.DATA], {bitrate:currQueue[QueueParts.BITRATE]});
           break;
         case PlayType.STREAM:
-          dispatcher = data["connection"].playArbitraryInput(currQueue[QueueParts.DATA], {bitrate:currQueue[QueueParts.BITRATE], volume:1});
+          dispatcher = data["connection"].playArbitraryInput(currQueue[QueueParts.DATA], {bitrate:currQueue[QueueParts.BITRATE]});
           break;
         default:
-          this.play(voiceChannel);
-          return;
+          throw new Error("Invalid PlayType");
       }
 
       dispatcher.on("end", () => {
@@ -131,7 +130,7 @@ class AudioHandler {
     }
   }
 
-  pushQueue(queueWrapper, data, type = PlayType.FILENAME, bitrate = null){
+  pushQueue(queueWrapper, data, type = PlayType.FILENAME, bitrate = 1411){
     queueWrapper["queue"].push([data,type,bitrate]);
   }
 }
