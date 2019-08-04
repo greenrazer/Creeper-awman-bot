@@ -87,8 +87,5 @@ typings/
 # DynamoDB Local files
 .dynamodb/
 
-# Authentication
-auth/
-
 # Song Data 4 copyright
 songs/*
