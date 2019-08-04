@@ -62,6 +62,10 @@ bot.on('message', async (message) => {
       }
       break;
     default:
+      if(!ServerInfo.has(id)){
+        return;
+      }
+      
       if(ServerInfo.get(id)["audioHandler"].isStarted(vc)){
         let toPlay = [];
         for(let word of words) {

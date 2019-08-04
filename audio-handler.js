@@ -1,4 +1,5 @@
 const fs = require('fs');
+const util = require('util');
 const SimpleLogger = require("./simple-logger");
 const streamifier = require("streamifier");
 
@@ -58,7 +59,7 @@ class AudioHandler {
       }
 
       // const readStream = fs.createReadStream(this.posToFilename.get(num));
-      // data["queue"].push(readStream);
+      // this.pushQueue(data, readStream, PlayType.STREAM);
       this.pushQueue(data, this.posToFilename.get(num), PlayType.FILENAME);
     }
 
@@ -82,9 +83,14 @@ class AudioHandler {
 
     const audioData = (await this.googleTTSClient.synthesizeSpeech(request))[0].audioContent;
 
-    const data = this.idToData.get(AudioHandler.idFromVoiceChannel(voiceChannel));
+    const id = AudioHandler.idFromVoiceChannel(voiceChannel);
 
-    this.pushQueue(data, streamifier.createReadStream(audioData), PlayType.STREAM);
+    const data = this.idToData.get(id);
+
+    const writeFile = util.promisify(fs.writeFile);
+    await writeFile(`./temp_audio/${id}.wav`, audioData, 'binary');
+
+    this.pushQueue(data, `./temp_audio/${id}.wav`, PlayType.FILENAME);
 
     if(!data["isPlaying"]) {
       this.play(voiceChannel);
