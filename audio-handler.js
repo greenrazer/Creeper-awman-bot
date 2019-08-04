@@ -15,10 +15,11 @@ const QueueParts = {
 }
 
 class AudioHandler {
-  constructor(){
+  constructor(googleTTSClient){
     this.posToFilename = new Map();
     this.idToData= new Map();
     this.numFiles = 0;
+    this.googleTTSClient = googleTTSClient;
   }
 
   addNextFilename(filename) {
@@ -58,10 +59,42 @@ class AudioHandler {
         throw new Error("Is adding a file that does not exist.");
       }
 
+      // const readStream = fs.createReadStream(this.posToFilename.get(num));
+      // this.pushQueue(data, readStream, PlayType.STREAM, 1411);
       this.pushQueue(data, this.posToFilename.get(num), PlayType.FILENAME, 1411);
     }
 
     if(!data["isPlaying"]) {
+      this.play(voiceChannel);
+    }
+  }
+
+  async addTTSToQueue(voiceChannel, sentence) {
+    if (!this.isStarted(voiceChannel)) {
+      return;
+    }
+
+    const request = {
+      input: { text: sentence },
+      // Select the language and SSML Voice Gender (optional)
+      voice: { languageCode: 'en-US', ssmlGender: 'NEUTRAL' },
+      // Select the type of audio encoding
+      audioConfig: { audioEncoding: 'LINEAR16' },
+    };
+
+    const audioData = (await this.googleTTSClient.synthesizeSpeech(request))[0].audioContent;
+
+    const id = AudioHandler.idFromVoiceChannel(voiceChannel);
+
+    const data = this.idToData.get(id);
+
+    const writeFile = util.promisify(fs.writeFile);
+    await writeFile(`./temp_audio/${id}.wav`, audioData, 'binary');
+
+    this.pushQueue(data, `./temp_audio/${id}.wav`, PlayType.FILENAME, 384);
+    // this.pushQueue(data, streamifier.createReadStream(audioData), PlayType.FILENAME, 384);
+
+    if (!data["isPlaying"]) {
       this.play(voiceChannel);
     }
   }
@@ -75,7 +108,7 @@ class AudioHandler {
       let dispatcher;
       switch(currQueue[QueueParts.TYPE]) {
         case PlayType.FILENAME:
-          dispatcher = data["connection"].playFile(currQueue[QueueParts.DATA]);
+          dispatcher = data["connection"].playFile(currQueue[QueueParts.DATA], {bitrate:currQueue[QueueParts.BITRATE]});
           break;
         case PlayType.STREAM:
           dispatcher = data["connection"].playArbitraryInput(currQueue[QueueParts.DATA], {bitrate:currQueue[QueueParts.BITRATE]});

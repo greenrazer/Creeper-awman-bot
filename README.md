@@ -8,8 +8,11 @@
 2. Type the lyrics into chat and the bot will play them, but get it wrong and you will have to start from the begining
 3. Type `!cbStop` at anytime to close the bot on your voice channel
 
-## Developing (USE NODE VERSION 'lts/carbon')
-1. Create a discord application and bot [here][discordapp]
+## Developing
+1. Clone the repository.
+2. Add your google auth file by following [this][beforeyoubegingoogleapi] tutorial up to getting the auth json file.
+3. Change the name of the json file you got in the last step to `google-auth.json` and put it in your `auth/` directory.
+4. Create a discord application and bot [here][discordapp]
   1. Click on new application.
   
    ![new application][newapp]
@@ -36,7 +39,7 @@
    ![creating a link][createlink]
 
   8. Paste it in the web browser, and add it to any discord server you are an admin of.
-2. `npm run` will run the bot and it will be useable on any server you added it on.
+5. `npm run` will run the bot and it will be useable on any server you added it on.
 
 [beforeyoubegingoogleapi]: https://github.com/googleapis/nodejs-text-to-speech#before-you-begin
 [discordapp]: https://discordapp.com/developers/applications/
