@@ -72,7 +72,7 @@ bot.on('message', async (message) => {
             return;
           }
         }
-        ServerInfo.get(id)["audioHandler"].addToQueue(vc, toPlay);
+        await ServerInfo.get(id)["audioHandler"].addToQueue(vc, toPlay);
       }
       break;
   }

@@ -47,19 +47,23 @@ class AudioHandler {
     this.idToData.delete(id);
   }
 
-  addToQueue(voiceChannel, nums) {
+  async addToQueue(voiceChannel, nums) {
     if(!this.isStarted(voiceChannel)){
       return;
     }
 
     const data = this.idToData.get(AudioHandler.idFromVoiceChannel(voiceChannel));
+    const streams = new Array(nums.length);
+    let currAt = 0;
+
     for(let num of nums) {
       if(!this.posToFilename.has(num)){
         throw new Error("Is adding a file that does not exist.");
       }
-
-      this.pushQueue(data, this.posToFilename.get(num), PlayType.FILENAME, 1411);
+      streams[currAt++] = AudioHandler.createFileStream(this.posToFilename.get(num));
     }
+
+    this.pushQueue(data, await Promise.all(streams), PlayType.STREAM, 1411);
 
     if(!data["isPlaying"]) {
       this.play(voiceChannel);
@@ -69,6 +73,7 @@ class AudioHandler {
   async play(voiceChannel) {
     const data = this.idToData.get(AudioHandler.idFromVoiceChannel(voiceChannel));
     if(data["queue"].length > 0){
+      console.log("play");
       data["isPlaying"] = true;
       const currQueue = data["queue"].shift();
 
@@ -78,13 +83,14 @@ class AudioHandler {
           dispatcher = data["connection"].playFile(currQueue[QueueParts.DATA]);
           break;
         case PlayType.STREAM:
-          dispatcher = data["connection"].playArbitraryInput(currQueue[QueueParts.DATA], {bitrate:currQueue[QueueParts.BITRATE]});
+          dispatcher = data["connection"].playStream(currQueue[QueueParts.DATA], {bitrate:currQueue[QueueParts.BITRATE]});
           break;
         default:
           throw new Error("Invalid PlayType");
       }
 
       dispatcher.on("end", () => {
+        console.log("end");
         this.play(voiceChannel);
       });
       dispatcher.on("error", (err) => {
@@ -98,7 +104,29 @@ class AudioHandler {
   }
 
   pushQueue(queueWrapper, data, type = PlayType.FILENAME, bitrate = null){
-    queueWrapper["queue"].push([data,type,bitrate]);
+    console.log("queue");
+    if(Array.isArray(data)) {
+      for(let element of data){
+        queueWrapper["queue"].push([element,type,bitrate]);
+      }
+    }
+    else {
+      queueWrapper["queue"].push([data,type,bitrate]);
+    }
+  }
+
+  static createFileStream(filename) {
+    return new Promise((resolve, reject) => {
+      const readStream = fs.createReadStream(filename);
+      readStream.on('open', () => {
+        console.log("open");
+        resolve(readStream);
+      });
+      readStream.on("error", (err) => {
+        console.log("err");
+        reject(err);
+      })
+    });
   }
 }
 
